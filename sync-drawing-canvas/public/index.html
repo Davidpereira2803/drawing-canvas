@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-time Drawing</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden; 
+    }
+
+    #drawingCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      margin: auto;
+      border: 1px solid #000;
+    }
+  </style>
+</head>
+<body>
+    <canvas id="drawingCanvas" width="800" height="600" style="border:1px solid #000;"></canvas>
+
+  <script>
+    const socket = io();
+
+    const canvas = document.getElementById('drawingCanvas');
+    const context = canvas.getContext('2d');
+    let isDrawing = false;
+
+    function startDrawing(event) {
+      isDrawing = true;
+
+      const { offsetX, offsetY } = event.touches ? event.touches[0] : event;
+      context.beginPath();
+      context.moveTo(offsetX, offsetY);
+
+      socket.emit('draw', { start: { x: offsetX, y: offsetY } });
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+      context.closePath();
+    }
+
+    function draw(event) {
+      event.preventDefault();
+
+      if (!isDrawing) return;
+
+      const { offsetX, offsetY } = event.touches ? event.touches[0] : event;
+      context.lineTo(offsetX, offsetY);
+      context.stroke();
+
+      socket.emit('draw', { end: { x: offsetX, y: offsetY } });
+    }
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('touchstart', startDrawing);
+
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('touchend', stopDrawing);
+
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('touchmove', draw);
+
+    socket.on('draw', (data) => {
+      if (data.start) {
+        context.beginPath();
+        context.moveTo(data.start.x, data.start.y);
+      } else if (data.end) {
+        context.lineTo(data.end.x, data.end.y);
+        context.stroke();
+      }
+    });
+  </script>
+</body>
+</html>
